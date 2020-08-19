@@ -2,6 +2,7 @@ package elktail
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -26,7 +27,7 @@ type Config struct {
 
 // NewTail @todo
 func NewTail(c Config) Tail {
-	return &tail{}
+	return &tail{config: c}
 
 }
 
@@ -36,14 +37,24 @@ type tail struct {
 	offset *time.Time
 }
 
+type status struct {
+	Timestamp time.Time
+	Config
+}
+
 func (t *tail) Run(ctx context.Context, out io.Writer) error {
 	ticker := time.NewTicker(time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case t := <-ticker.C:
-			_, err := fmt.Fprintln(out, "{\"tick tock\":\"", t, "\"}")
+		case i := <-ticker.C:
+			s := status{Config: t.config, Timestamp: i}
+			b, err := json.Marshal(s)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(out, string(b))
 			if err != nil {
 				return err
 			}
